@@ -2,6 +2,8 @@
 
 [![npm version](https://img.shields.io/npm/v/homebridge-roborock-matter-vacuum.svg)](https://www.npmjs.com/package/homebridge-roborock-matter-vacuum)
 [![npm downloads](https://img.shields.io/npm/dt/homebridge-roborock-matter-vacuum.svg)](https://www.npmjs.com/package/homebridge-roborock-matter-vacuum)
+[![Node](https://img.shields.io/badge/node-%3E%3D22.0.0-green.svg)](https://nodejs.org)
+![Homebridge](https://img.shields.io/badge/homebridge-%3E%3D2.0.0-blueviolet.svg)
 [![GitHub release](https://img.shields.io/github/v/release/jakemgold/homebridge-roborock-matter-vacuum?include_prereleases)](https://github.com/jakemgold/homebridge-roborock-matter-vacuum/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -41,13 +43,13 @@ npm install -g homebridge-roborock-matter-vacuum
 For a beta tarball build:
 
 ```sh
-npm install -g ./homebridge-roborock-matter-vacuum-0.3.2.tgz
+npm install -g ./homebridge-roborock-matter-vacuum-0.3.3.tgz
 ```
 
 If the tarball is hosted from another machine:
 
 ```sh
-npm install -g http://HOST:PORT/homebridge-roborock-matter-vacuum-0.3.2.tgz
+npm install -g http://HOST:PORT/homebridge-roborock-matter-vacuum-0.3.3.tgz
 ```
 
 Restart Homebridge after installing or updating the plugin.

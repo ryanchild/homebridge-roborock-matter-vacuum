@@ -1,6 +1,6 @@
 {
   "name": "homebridge-roborock-matter-vacuum",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Homebridge 2.0 Matter robotic vacuum plugin for Roborock cloud vacuums.",
   "displayName": "Homebridge Roborock Matter Vacuum",
   "author": "Jake Goldman <1660744+jakemgold@users.noreply.github.com>",
@@ -49,7 +49,7 @@
     "prepack": "npm run build"
   },
   "dependencies": {
-    "homebridge-roborock-vacuum2": "^1.4.28"
+    "homebridge-roborock-vacuum2": "1.4.28"
   },
   "devDependencies": {
     "@types/node": "^22.15.29",

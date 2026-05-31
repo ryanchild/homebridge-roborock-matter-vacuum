@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.3.3 - 2026-05-30
+
+- Pinned `homebridge-roborock-vacuum2` to the exact tested version while the beta still depends on its Roborock cloud internals.
+- Planned a `0.4.0` follow-up to extract a minimal in-repo Roborock cloud client and remove the third-party Homebridge plugin dependency.
+
 ## 0.3.2 - 2026-05-30
 
 - Added npm/Homebridge display metadata, including `displayName`, `author`, and package `icon`.
