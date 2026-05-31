@@ -1,0 +1,50 @@
+{
+  "pluginAlias": "RoborockMatter",
+  "pluginType": "platform",
+  "singular": true,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Plugin Name",
+        "type": "string",
+        "default": "Roborock Matter"
+      },
+      "pollingIntervalSeconds": {
+        "title": "Polling Interval",
+        "type": "integer",
+        "minimum": 5,
+        "default": 20,
+        "description": "How often to poll Roborock state and push updates to Matter."
+      },
+      "username": {
+        "title": "Roborock Account Email",
+        "type": "string",
+        "description": "Roborock account email. When set with Password, the plugin discovers vacuums from the Roborock cloud."
+      },
+      "password": {
+        "title": "Roborock Account Password",
+        "type": "string",
+        "format": "password",
+        "description": "Roborock account password. Stored by Homebridge like other plugin config secrets."
+      },
+      "region": {
+        "title": "Roborock Region",
+        "type": "string",
+        "default": "us",
+        "oneOf": [
+          { "title": "United States", "enum": ["us"] },
+          { "title": "Europe", "enum": ["eu"] },
+          { "title": "China", "enum": ["cn"] },
+          { "title": "Singapore / Other", "enum": ["sg"] }
+        ]
+      },
+      "verificationCode": {
+        "title": "Email Verification Code",
+        "type": "string",
+        "format": "password",
+        "description": "Optional one-time Roborock email verification code. Add it only if logs say verification is required, restart Homebridge, then remove it after login succeeds."
+      }
+    }
+  }
+}

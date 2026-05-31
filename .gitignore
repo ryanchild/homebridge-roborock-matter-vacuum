@@ -1,0 +1,23 @@
+dist/
+node_modules/
+npm-debug.log*
+.DS_Store
+
+# Local package builds
+*.tgz
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+config.json
+auth.json
+secrets.json
+
+# Homebridge/local runtime artifacts
+.homebridge/
+homebridge.log*
+*.log
+persist/
+accessories/
+storage/

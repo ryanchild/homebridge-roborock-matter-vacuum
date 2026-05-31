@@ -1,0 +1,54 @@
+{
+  "name": "homebridge-roborock-matter-vacuum",
+  "version": "0.3.1",
+  "description": "Homebridge 2.0 Matter robotic vacuum plugin for Roborock cloud vacuums.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jakemgold/homebridge-roborock-matter-vacuum.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jakemgold/homebridge-roborock-matter-vacuum/issues"
+  },
+  "homepage": "https://github.com/jakemgold/homebridge-roborock-matter-vacuum#readme",
+  "files": [
+    "dist",
+    "config.schema.json",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "homebridge-plugin",
+    "homebridge",
+    "matter",
+    "roborock",
+    "xiaomi",
+    "vacuum"
+  ],
+  "engines": {
+    "node": ">=22.0.0",
+    "homebridge": ">=2.0.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "tsc --noEmit",
+    "audit:prod": "npm audit --omit=dev",
+    "watch": "tsc --watch",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "homebridge-roborock-vacuum2": "^1.4.28"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.29",
+    "homebridge": "^2.0.2",
+    "typescript": "^5.8.3"
+  },
+  "homebridge": {
+    "pluginAlias": "RoborockMatter",
+    "pluginType": "platform"
+  }
+}

@@ -1,0 +1,7 @@
+src/
+tsconfig.json
+node_modules/
+dist/**/*.map
+npm-debug.log*
+*.tgz
+.DS_Store
