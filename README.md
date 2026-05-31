@@ -1,13 +1,31 @@
-# Homebridge Roborock Matter Vacuum
+<p align="center">
+  <img src="icon.png" alt="homebridge-roborock-matter-vacuum" width="120">
+</p>
 
-[![npm version](https://img.shields.io/npm/v/homebridge-roborock-matter-vacuum.svg)](https://www.npmjs.com/package/homebridge-roborock-matter-vacuum)
-[![npm downloads](https://img.shields.io/npm/dt/homebridge-roborock-matter-vacuum.svg)](https://www.npmjs.com/package/homebridge-roborock-matter-vacuum)
-[![Node](https://img.shields.io/badge/node-%3E%3D22.0.0-green.svg)](https://nodejs.org)
-![Homebridge](https://img.shields.io/badge/homebridge-%3E%3D2.0.0-blueviolet.svg)
-[![GitHub release](https://img.shields.io/github/v/release/jakemgold/homebridge-roborock-matter-vacuum?include_prereleases)](https://github.com/jakemgold/homebridge-roborock-matter-vacuum/releases)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+<h1 align="center">Homebridge Roborock Matter Vacuum</h1>
 
-Homebridge 2.0 platform plugin that exposes Roborock cloud vacuums as Matter `RoboticVacuumCleaner` devices.
+<p align="center">
+  Homebridge 2.0 platform plugin that exposes Roborock cloud vacuums as Matter <code>RoboticVacuumCleaner</code> devices.
+</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/homebridge-roborock-matter-vacuum">
+    <img alt="npm version" src="https://img.shields.io/npm/v/homebridge-roborock-matter-vacuum.svg">
+  </a>
+  <a href="https://www.npmjs.com/package/homebridge-roborock-matter-vacuum">
+    <img alt="npm downloads" src="https://img.shields.io/npm/dt/homebridge-roborock-matter-vacuum.svg">
+  </a>
+  <a href="https://nodejs.org">
+    <img alt="Node" src="https://img.shields.io/badge/node-%3E%3D22.0.0-green.svg">
+  </a>
+  <img alt="Homebridge" src="https://img.shields.io/badge/homebridge-%3E%3D2.0.0-blueviolet.svg">
+  <a href="https://github.com/jakemgold/homebridge-roborock-matter-vacuum/releases">
+    <img alt="GitHub release" src="https://img.shields.io/github/v/release/jakemgold/homebridge-roborock-matter-vacuum?include_prereleases">
+  </a>
+  <a href="LICENSE">
+    <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg">
+  </a>
+</p>
 
 This plugin uses the Roborock cloud account login. It does not require a miIO token, a local vacuum IP address, or LAN discovery.
 
