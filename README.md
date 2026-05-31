@@ -31,12 +31,21 @@ This plugin uses the Roborock cloud account login. It does not require a miIO to
 
 ## Apple Home Screenshots
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/jakemgold/homebridge-roborock-matter-vacuum/main/docs/screenshots/home-control.webp" width="220" alt="Apple Home main Roborock vacuum controls">
-  <img src="https://raw.githubusercontent.com/jakemgold/homebridge-roborock-matter-vacuum/main/docs/screenshots/clean-mode.webp" width="220" alt="Apple Home Roborock clean mode picker">
-  <img src="https://raw.githubusercontent.com/jakemgold/homebridge-roborock-matter-vacuum/main/docs/screenshots/rooms.webp" width="220" alt="Apple Home Roborock room selection">
-  <img src="https://raw.githubusercontent.com/jakemgold/homebridge-roborock-matter-vacuum/main/docs/screenshots/accessory-details.webp" width="220" alt="Apple Home Roborock accessory details">
-</p>
+<table>
+  <tr>
+    <td width="34%" valign="top">
+      <img src="https://raw.githubusercontent.com/jakemgold/homebridge-roborock-matter-vacuum/main/docs/screenshots/home-control.webp" alt="Apple Home main Roborock vacuum controls">
+    </td>
+    <td width="33%" valign="top">
+      <img src="https://raw.githubusercontent.com/jakemgold/homebridge-roborock-matter-vacuum/main/docs/screenshots/clean-mode.webp" alt="Apple Home Roborock clean mode picker">
+      <br><br>
+      <img src="https://raw.githubusercontent.com/jakemgold/homebridge-roborock-matter-vacuum/main/docs/screenshots/accessory-details.webp" alt="Apple Home Roborock accessory details">
+    </td>
+    <td width="33%" valign="top">
+      <img src="https://raw.githubusercontent.com/jakemgold/homebridge-roborock-matter-vacuum/main/docs/screenshots/rooms.webp" alt="Apple Home Roborock room selection">
+    </td>
+  </tr>
+</table>
 
 ## Requirements
 
