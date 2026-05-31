@@ -29,6 +29,15 @@
 
 This plugin uses the Roborock cloud account login. It does not require a miIO token, a local vacuum IP address, or LAN discovery.
 
+## Apple Home Screenshots
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/jakemgold/homebridge-roborock-matter-vacuum/main/docs/screenshots/home-control.webp" width="220" alt="Apple Home main Roborock vacuum controls">
+  <img src="https://raw.githubusercontent.com/jakemgold/homebridge-roborock-matter-vacuum/main/docs/screenshots/clean-mode.webp" width="220" alt="Apple Home Roborock clean mode picker">
+  <img src="https://raw.githubusercontent.com/jakemgold/homebridge-roborock-matter-vacuum/main/docs/screenshots/rooms.webp" width="220" alt="Apple Home Roborock room selection">
+  <img src="https://raw.githubusercontent.com/jakemgold/homebridge-roborock-matter-vacuum/main/docs/screenshots/accessory-details.webp" width="220" alt="Apple Home Roborock accessory details">
+</p>
+
 ## Requirements
 
 - Homebridge 2.0 or newer
