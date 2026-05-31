@@ -1,7 +1,10 @@
 {
   "name": "homebridge-roborock-matter-vacuum",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Homebridge 2.0 Matter robotic vacuum plugin for Roborock cloud vacuums.",
+  "displayName": "Homebridge Roborock Matter Vacuum",
+  "author": "Jake Goldman <1660744+jakemgold@users.noreply.github.com>",
+  "icon": "icon.png",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "license": "MIT",
@@ -18,15 +21,21 @@
     "config.schema.json",
     "README.md",
     "CHANGELOG.md",
-    "LICENSE"
+    "LICENSE",
+    "icon.png"
   ],
   "keywords": [
     "homebridge-plugin",
     "homebridge",
+    "homekit",
+    "apple-home",
     "matter",
     "roborock",
     "xiaomi",
-    "vacuum"
+    "vacuum",
+    "robot-vacuum",
+    "robotic-vacuum",
+    "mop"
   ],
   "engines": {
     "node": ">=22.0.0",

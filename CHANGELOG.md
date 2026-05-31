@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.3.2 - 2026-05-30
+
+- Added npm/Homebridge display metadata, including `displayName`, `author`, and package `icon`.
+- Expanded npm discovery keywords for Homebridge, Matter, HomeKit, Roborock, robot vacuums, and mop support.
+
 ## 0.3.1 - 2026-05-30
 
 - Simplified the Homebridge Config UI to the core Roborock cloud setup fields.

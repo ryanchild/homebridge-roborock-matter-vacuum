@@ -1,5 +1,10 @@
 # Homebridge Roborock Matter Vacuum
 
+[![npm version](https://img.shields.io/npm/v/homebridge-roborock-matter-vacuum.svg)](https://www.npmjs.com/package/homebridge-roborock-matter-vacuum)
+[![npm downloads](https://img.shields.io/npm/dt/homebridge-roborock-matter-vacuum.svg)](https://www.npmjs.com/package/homebridge-roborock-matter-vacuum)
+[![GitHub release](https://img.shields.io/github/v/release/jakemgold/homebridge-roborock-matter-vacuum?include_prereleases)](https://github.com/jakemgold/homebridge-roborock-matter-vacuum/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Homebridge 2.0 platform plugin that exposes Roborock cloud vacuums as Matter `RoboticVacuumCleaner` devices.
 
 This plugin uses the Roborock cloud account login. It does not require a miIO token, a local vacuum IP address, or LAN discovery.
@@ -36,13 +41,13 @@ npm install -g homebridge-roborock-matter-vacuum
 For a beta tarball build:
 
 ```sh
-npm install -g ./homebridge-roborock-matter-vacuum-0.3.1.tgz
+npm install -g ./homebridge-roborock-matter-vacuum-0.3.2.tgz
 ```
 
 If the tarball is hosted from another machine:
 
 ```sh
-npm install -g http://HOST:PORT/homebridge-roborock-matter-vacuum-0.3.1.tgz
+npm install -g http://HOST:PORT/homebridge-roborock-matter-vacuum-0.3.2.tgz
 ```
 
 Restart Homebridge after installing or updating the plugin.

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Roborock Matter vacuum icon">
+  <defs>
+    <linearGradient id="background" x1="80" y1="48" x2="432" y2="464" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#242B3A"/>
+      <stop offset="0.58" stop-color="#1B6B73"/>
+      <stop offset="1" stop-color="#F47C48"/>
+    </linearGradient>
+    <linearGradient id="vacuum" x1="128" y1="112" x2="384" y2="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#DDE8EA"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="104" fill="url(#background)"/>
+  <circle cx="256" cy="270" r="142" fill="rgba(10, 18, 26, 0.26)"/>
+  <circle cx="256" cy="244" r="126" fill="url(#vacuum)"/>
+  <circle cx="256" cy="244" r="72" fill="#293545"/>
+  <circle cx="256" cy="244" r="38" fill="#F47C48"/>
+  <circle cx="256" cy="244" r="16" fill="#FFFFFF"/>
+  <path d="M171 326c23 29 53 44 85 44s62-15 85-44" fill="none" stroke="#293545" stroke-width="18" stroke-linecap="round"/>
+  <path d="M344 136h54v54" fill="none" stroke="#FFFFFF" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M398 136l-66 66" fill="none" stroke="#FFFFFF" stroke-width="20" stroke-linecap="round"/>
+  <circle cx="143" cy="138" r="16" fill="#FFFFFF"/>
+  <circle cx="100" cy="180" r="11" fill="#FFFFFF" opacity="0.85"/>
+  <circle cx="148" cy="190" r="8" fill="#FFFFFF" opacity="0.7"/>
+</svg>
