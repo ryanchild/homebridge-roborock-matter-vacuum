@@ -79,13 +79,13 @@ npm install -g homebridge-roborock-matter-vacuum
 For a beta tarball build:
 
 ```sh
-npm install -g ./homebridge-roborock-matter-vacuum-0.3.3.tgz
+npm install -g ./homebridge-roborock-matter-vacuum-0.5.0.tgz
 ```
 
 If the tarball is hosted from another machine:
 
 ```sh
-npm install -g http://HOST:PORT/homebridge-roborock-matter-vacuum-0.3.3.tgz
+npm install -g http://HOST:PORT/homebridge-roborock-matter-vacuum-0.5.0.tgz
 ```
 
 Restart Homebridge after installing or updating the plugin.
@@ -101,7 +101,7 @@ The simplest setup only needs your Roborock cloud account:
   "username": "you@example.com",
   "password": "your-roborock-password",
   "region": "us",
-  "pollingIntervalSeconds": 20
+  "pollingIntervalSeconds": 60
 }
 ```
 
@@ -122,7 +122,7 @@ Homebridge stores plugin configuration on disk. For a safer setup:
 4. Remove `password` from the plugin config.
 5. Restart Homebridge again.
 
-The plugin stores the Roborock login session on disk, so normal restarts should continue using the cached session without keeping the password in config.
+The plugin stores the Roborock login session on disk with owner-only file permissions, so normal restarts should continue using the cached session without keeping the password in config.
 
 If Roborock requires email verification, the logs will say so. Add the one-time `verificationCode`, restart Homebridge, then remove `verificationCode` after login succeeds.
 
@@ -131,6 +131,44 @@ If Roborock requires email verification, the logs will say so. Add the one-time 
 Vacuums, clean modes, mop modes, and rooms are discovered automatically from the Roborock cloud where possible. The Homebridge Config UI intentionally keeps advanced overrides hidden for the beta so normal setup stays simple.
 
 If your vacuum needs a model-specific fix, open an issue with sanitized logs instead of guessing custom clean-mode or room settings.
+
+### Advanced Room Name Overrides
+
+Some models expose saved map names but not the correct room names for every map. If the plugin shows generic labels such as `Upstairs Room 17`, you can manually override just the labels while keeping automatic map and segment discovery.
+
+```json
+{
+  "platform": "RoborockMatter",
+  "username": "you@example.com",
+  "region": "us",
+  "vacuums": [
+    {
+      "name": "Roborock S6 MaxV",
+      "roomNameOverrides": [
+        { "mapName": "Upstairs", "segmentId": 17, "label": "Primary Bedroom" },
+        { "mapName": "Upstairs", "segmentId": 18, "label": "Upstairs Hallway" }
+      ]
+    }
+  ]
+}
+```
+
+For a quicker but order-sensitive override, use `roomNamesByMap`:
+
+```json
+{
+  "vacuums": [
+    {
+      "name": "Roborock S6 MaxV",
+      "roomNamesByMap": {
+        "Upstairs": ["Primary Bedroom", "Upstairs Hallway", "Guest Room"]
+      }
+    }
+  ]
+}
+```
+
+Exact `roomNameOverrides` win over `roomNamesByMap`. Restart Homebridge after changing labels; Apple Home may need to be reopened to refresh the picker.
 
 ## Matter Pairing
 
@@ -157,7 +195,7 @@ The plugin publishes Matter clusters for:
 - `RvcOperationalState`: stopped, running, paused, seeking charger, charging, docked
 - `PowerSource`: battery percentage and charging state
 - `Identify`: play the vacuum locate sound when supported
-- `ServiceArea`: optional room or zone selection
+- `ServiceArea`: optional room, zone, and map/floor selection
 
 Apple Home currently exposes controls such as start, pause, return to dock, battery, clean mode, mop mode, room selection, and identify depending on controller support and the vacuum model.
 
@@ -167,7 +205,9 @@ Apple Home currently exposes controls such as start, pause, return to dock, batt
 - Cloud mode is currently the only supported connection mode.
 - Local miIO IP/token control was intentionally removed from the public beta path to avoid shipping old vulnerable dependencies.
 - Matter robotic vacuum support varies by controller. Apple Home, Google Home, Alexa, and SmartThings may expose different controls.
-- Room discovery uses the current Roborock map. Multi-floor room publishing is not implemented yet.
+- Multi-floor room discovery uses saved Roborock maps where available. During discovery, the plugin may briefly switch maps only while the vacuum appears idle, then caches the room list for future startups.
+- Some Roborock models report saved map names but reuse the same room-name mapping for every map. When that happens, the plugin keeps the stable discovered room names and uses generic room labels for maps with stale data; exact per-floor room names may require `roomNameOverrides` or `roomNamesByMap`.
+- Room selections must be on one Roborock map/floor at a time; the robot cannot clean rooms from multiple saved maps in a single command.
 - Roborock command acknowledgements can be slow or missing. The plugin returns quickly to Matter for responsiveness and logs late failures when Roborock reports them.
 - Changing supported Matter modes or rooms may require restarting Homebridge and, in some cases, removing and re-adding the Matter accessory.
 - Do not share Homebridge config files in issues or chat. Logs are safer than config, but they can still reveal device names and room counts.

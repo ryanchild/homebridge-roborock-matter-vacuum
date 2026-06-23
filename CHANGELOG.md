@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.5.0 - 2026-06-23
+
+- Replaced the `homebridge-roborock-vacuum2` runtime dependency with a minimal in-repo Roborock cloud/MQTT client, dropping the old local miIO/token dependency path and substantially reducing the production dependency tree.
+- Added Matter map/floor selection from Roborock saved maps, including automatic room discovery, room-cache fallback, map switching before room-clean commands, and rejection of room-clean requests that span multiple maps.
+- Added duplicate/stale room-mapping safeguards for models that expose saved map names but keep returning another map's room table; affected maps now use generic map-scoped room labels instead of misleading reused names.
+- Added per-vacuum room-label overrides with `roomNameOverrides` and ordered `roomNamesByMap` shorthand for models whose per-map room names are not exposed correctly by the Roborock cloud API.
+- Improved Apple Home responsiveness with optimistic run/operational state updates, Roborock MQTT push updates, delayed command reconciliation, status refresh backoff, and throttled repeated timeout warnings.
+- Expanded clean-mode support with suction levels, vacuum-and-mop modes, Qrevo-family mop-only modes, better docked/full-battery reporting, and model-code matching for more modern Roborock S/Q/Qrevo/Saros variants. Thanks to @ryanchild for the model targeting contribution in #2.
+- Added owner-only permissions for cached Roborock session and room-cache files, sanitized login failure messages so raw cloud responses are not logged, and updated the lockfile to avoid the `form-data` production audit advisory.
+- Added a `NOTICE` file for MIT-licensed Roborock protocol code adapted from `homebridge-roborock-vacuum2`.
+
+Known limitation: on the tested S6 MaxV, Roborock exposes saved map names but does not reliably expose distinct room names for every map through the cloud room-mapping path. The plugin avoids publishing known-stale names, but exact per-floor room labels may require `roomNameOverrides` or `roomNamesByMap`.
+
 ## 0.3.3 - 2026-05-30
 
 - Pinned `homebridge-roborock-vacuum2` to the exact tested version while the beta still depends on its Roborock cloud internals.

@@ -44,6 +44,9 @@ export interface RoborockVacuumConfig {
   enableMoppingModes?: boolean;
   defaultCleanMode?: number;
   segmentCleanPayload?: SegmentCleanPayload;
+  roomNameOverrides?: RoomNameOverrideConfig[];
+  roomNamesByMap?: Record<string, string[]>;
+  serviceMaps?: ServiceMapConfig[];
   serviceAreas?: ServiceAreaConfig[];
 }
 
@@ -63,12 +66,30 @@ export interface ServiceAreaConfig {
   areaId: number;
   label: string;
   kind?: AreaKind;
+  mapId?: number;
+  mapName?: string;
+  roborockMapId?: number;
   segmentId?: number;
+  roomId?: string;
   coordinates?: [number, number, number, number];
   repeat?: number;
 }
 
-export const DEFAULT_POLLING_INTERVAL_SECONDS = 20;
+export interface ServiceMapConfig {
+  mapId: number;
+  name: string;
+}
+
+export interface RoomNameOverrideConfig {
+  label: string;
+  mapId?: number;
+  mapName?: string;
+  areaId?: number;
+  segmentId?: number;
+  roomId?: string;
+}
+
+export const DEFAULT_POLLING_INTERVAL_SECONDS = 60;
 
 export const DEFAULT_CLEAN_MODES: CleanModeConfig[] = [
   {
@@ -101,10 +122,10 @@ export const DEFAULT_CLEAN_MODES: CleanModeConfig[] = [
   },
 ];
 
-export const DEFAULT_MOPPING_CLEAN_MODES: CleanModeConfig[] = [
+export const DEFAULT_VACUUM_AND_MOP_CLEAN_MODES: CleanModeConfig[] = [
   {
     mode: 4,
-    label: 'Light Mop',
+    label: 'Light Vacuum & Mop',
     tag: 'vacuumAndMop',
     intensity: 'lowEnergy',
     fanPower: 102,
@@ -112,7 +133,7 @@ export const DEFAULT_MOPPING_CLEAN_MODES: CleanModeConfig[] = [
   },
   {
     mode: 5,
-    label: 'Medium Mop',
+    label: 'Medium Vacuum & Mop',
     tag: 'vacuumAndMop',
     intensity: 'auto',
     fanPower: 102,
@@ -120,10 +141,37 @@ export const DEFAULT_MOPPING_CLEAN_MODES: CleanModeConfig[] = [
   },
   {
     mode: 6,
-    label: 'High Mop',
+    label: 'High Vacuum & Mop',
     tag: 'vacuumAndMop',
     intensity: 'max',
     fanPower: 102,
+    waterBoxMode: 203,
+  },
+];
+
+export const DEFAULT_MOP_ONLY_CLEAN_MODES: CleanModeConfig[] = [
+  {
+    mode: 7,
+    label: 'Light Mop',
+    tag: 'mop',
+    intensity: 'lowEnergy',
+    fanPower: 105,
+    waterBoxMode: 201,
+  },
+  {
+    mode: 8,
+    label: 'Medium Mop',
+    tag: 'mop',
+    intensity: 'auto',
+    fanPower: 105,
+    waterBoxMode: 202,
+  },
+  {
+    mode: 9,
+    label: 'High Mop',
+    tag: 'mop',
+    intensity: 'max',
+    fanPower: 105,
     waterBoxMode: 203,
   },
 ];

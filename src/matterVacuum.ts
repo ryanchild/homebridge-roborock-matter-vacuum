@@ -2,13 +2,15 @@ import type { API, Logger, MatterAccessory } from 'homebridge';
 import type { RoborockStatus, RoborockVacuumClient } from './roborockClient';
 import {
   DEFAULT_CLEAN_MODES,
-  DEFAULT_MOPPING_CLEAN_MODES,
+  DEFAULT_MOP_ONLY_CLEAN_MODES,
   DEFAULT_POLLING_INTERVAL_SECONDS,
+  DEFAULT_VACUUM_AND_MOP_CLEAN_MODES,
   PLUGIN_NAME,
   type CleanModeConfig,
   type RoborockMatterConfig,
   type RoborockVacuumConfig,
   type ServiceAreaConfig,
+  type ServiceMapConfig,
 } from './settings';
 
 type MatterClusterState = Record<string, unknown>;
@@ -97,12 +99,88 @@ const BATTERY_CHARGE_STATE = {
   IsNotCharging: 3,
 } as const;
 
+const SERVICE_AREA_SELECT_STATUS = {
+  Success: 0,
+  UnsupportedArea: 1,
+  InvalidSet: 3,
+} as const;
+
+const SERVICE_AREA_SKIP_STATUS = {
+  Success: 0,
+} as const;
+
+const MIN_POLLING_INTERVAL_SECONDS = 60;
+const REFRESH_WARNING_THROTTLE_MS = 10 * 60 * 1000;
+const MAX_REFRESH_BACKOFF_MS = 5 * 60 * 1000;
+const OPTIMISTIC_STATE_WINDOW_MS = 25 * 1000;
+const COMMAND_RECONCILIATION_REFRESH_DELAYS_MS = [5 * 1000, 20 * 1000] as const;
+const MODEL_CODE_PATTERN = /(?:^|[.\s_-])(a\d+)(?=$|[.\s_-])/g;
+const MOPPING_MODEL_CODES = new Set([
+  'a09',
+  'a10',
+  'a11',
+  'a15',
+  'a21',
+  'a27',
+  'a38',
+  'a40',
+  'a51',
+  'a62',
+  'a65',
+  'a70',
+  'a72',
+  'a73',
+  'a75',
+  'a87',
+  'a97',
+  'a101',
+  'a104',
+  'a117',
+  'a135',
+  'a144',
+  'a147',
+]);
+const MOP_ONLY_MODEL_CODES = new Set([
+  'a21',
+  'a87',
+  'a101',
+  'a104',
+  'a117',
+  'a135',
+]);
+const MOPPING_MODEL_NAME_TOKENS = [
+  's5e',
+  's6 maxv',
+  's7',
+  's8',
+  'q5 pro',
+  'q7',
+  'q8',
+  'qrevo',
+  'saros',
+];
+const MOP_ONLY_MODEL_NAME_TOKENS = [
+  'qrevo',
+];
+
+type StatusUpdateSource = 'refresh' | 'push' | 'optimistic';
+
 export class RoborockMatterVacuum {
   private readonly uuid: string;
   private readonly cleanModes: CleanModeConfig[];
   private readonly serviceAreas: ServiceAreaConfig[];
+  private readonly serviceMaps: ServiceMapConfig[];
   private pollTimer?: NodeJS.Timeout;
+  private statusUpdateUnsubscribe?: () => void;
+  private readonly commandRefreshTimers = new Set<NodeJS.Timeout>();
   private selectedAreaIds: number[] = [];
+  private lastKnownStatus?: RoborockStatus;
+  private refreshInFlight = false;
+  private consecutiveRefreshFailures = 0;
+  private lastRefreshWarningAt = 0;
+  private nextRefreshAllowedAt = 0;
+  private optimisticOperationalState?: number;
+  private optimisticStateExpiresAt = 0;
 
   constructor(
     private readonly api: API,
@@ -117,7 +195,8 @@ export class RoborockMatterVacuum {
       ?? this.config.name;
     this.uuid = this.api.matter!.uuid.generate(`${PLUGIN_NAME}:${identity}`);
     this.cleanModes = this.config.cleanModes?.length ? this.config.cleanModes : this.defaultCleanModes();
-    this.serviceAreas = this.config.serviceAreas ?? [];
+    this.serviceMaps = this.normalizeServiceMaps(this.config.serviceMaps ?? this.serviceMapsFromAreas(this.config.serviceAreas ?? []));
+    this.serviceAreas = this.normalizeServiceAreas(this.config.serviceAreas ?? []);
   }
 
   public get UUID(): string {
@@ -125,6 +204,10 @@ export class RoborockMatterVacuum {
   }
 
   public buildAccessory(initialStatus?: RoborockStatus): MatterAccessory {
+    if (initialStatus) {
+      this.lastKnownStatus = this.mergeStatus(initialStatus);
+    }
+
     const state = this.toMatterState(initialStatus);
     const cleanModeStructs = this.cleanModeStructs();
     this.log.info(`Matter clean modes for ${this.config.name}: ${this.describeCleanModeStructs(cleanModeStructs)}`);
@@ -161,22 +244,31 @@ export class RoborockMatterVacuum {
         rvcRunMode: {
           changeToMode: async (request: { newMode: number }) => {
             await this.changeRunMode(request.newMode);
+            await this.applyOptimisticRunMode(request.newMode);
+            this.scheduleCommandRefreshes();
           },
         },
         rvcCleanMode: {
           changeToMode: async (request: { newMode: number }) => {
             await this.changeCleanMode(request.newMode);
+            this.scheduleCommandRefreshes();
           },
         },
         rvcOperationalState: {
           pause: async () => {
             await this.withMatterError('pause vacuum', () => this.client.pause());
+            await this.applyOptimisticStatus({ state: 10 }, RVC_OPERATIONAL_STATES.Paused);
+            this.scheduleCommandRefreshes();
           },
           resume: async () => {
             await this.withMatterError('resume vacuum', () => this.client.start());
+            await this.applyOptimisticStatus({ state: 5 }, RVC_OPERATIONAL_STATES.Running);
+            this.scheduleCommandRefreshes();
           },
           goHome: async () => {
             await this.withMatterError('dock vacuum', () => this.client.dock());
+            await this.applyOptimisticStatus({ state: 6 }, RVC_OPERATIONAL_STATES.SeekingCharger);
+            this.scheduleCommandRefreshes();
           },
         },
         identify: {
@@ -199,13 +291,20 @@ export class RoborockMatterVacuum {
   }
 
   public startPolling(): void {
+    this.statusUpdateUnsubscribe ??= this.client.onStatusUpdate?.((status) => {
+      void this.applyStatusUpdate(status, 'push').catch((error) => {
+        this.log.warn(`Failed to apply Roborock push update for ${this.config.name}: ${String(error)}`);
+      });
+    });
+
     const seconds = this.config.pollingIntervalSeconds
       ?? this.platformConfig.pollingIntervalSeconds
       ?? DEFAULT_POLLING_INTERVAL_SECONDS;
+    const intervalSeconds = Math.max(seconds, MIN_POLLING_INTERVAL_SECONDS);
 
     this.pollTimer = setInterval(() => {
       void this.refreshState();
-    }, Math.max(seconds, 5) * 1000);
+    }, intervalSeconds * 1000);
 
     void this.refreshState();
   }
@@ -215,6 +314,10 @@ export class RoborockMatterVacuum {
       clearInterval(this.pollTimer);
       this.pollTimer = undefined;
     }
+
+    this.statusUpdateUnsubscribe?.();
+    this.statusUpdateUnsubscribe = undefined;
+    this.clearCommandRefreshes();
   }
 
   public destroy(): void {
@@ -263,36 +366,188 @@ export class RoborockMatterVacuum {
     });
   }
 
-  private async refreshState(): Promise<void> {
+  private async applyOptimisticRunMode(newMode: number): Promise<void> {
+    if (newMode === 0) {
+      await this.applyOptimisticStatus({ state: 10 }, RVC_OPERATIONAL_STATES.Paused);
+      return;
+    }
+
+    await this.applyOptimisticStatus({ state: 5 }, RVC_OPERATIONAL_STATES.Running);
+  }
+
+  private async applyOptimisticStatus(status: RoborockStatus, operationalState: number): Promise<void> {
+    this.optimisticOperationalState = operationalState;
+    this.optimisticStateExpiresAt = Date.now() + OPTIMISTIC_STATE_WINDOW_MS;
+    await this.applyStatusUpdate(status, 'optimistic');
+  }
+
+  private scheduleCommandRefreshes(): void {
+    this.clearCommandRefreshes();
+
+    for (const delay of COMMAND_RECONCILIATION_REFRESH_DELAYS_MS) {
+      const timer = setTimeout(() => {
+        this.commandRefreshTimers.delete(timer);
+        void this.refreshState(true);
+      }, delay);
+      this.commandRefreshTimers.add(timer);
+    }
+  }
+
+  private clearCommandRefreshes(): void {
+    for (const timer of this.commandRefreshTimers) {
+      clearTimeout(timer);
+    }
+    this.commandRefreshTimers.clear();
+  }
+
+  private async refreshState(force = false): Promise<void> {
     if (!this.api.matter) {
       return;
     }
 
+    const now = Date.now();
+    if (this.refreshInFlight || (!force && now < this.nextRefreshAllowedAt)) {
+      return;
+    }
+
+    this.refreshInFlight = true;
+
     try {
       const status = await this.client.getStatus();
-      const state = this.toMatterState(status);
+      await this.applyStatusUpdate(status, 'refresh');
 
-      await this.api.matter.updateAccessoryState(this.uuid, this.clusterName('RvcRunMode', 'rvcRunMode'), {
-        currentMode: state.runMode,
-      });
-
-      await this.api.matter.updateAccessoryState(this.uuid, this.clusterName('RvcCleanMode', 'rvcCleanMode'), {
-        currentMode: state.cleanMode,
-      });
-
-      await this.api.matter.updateAccessoryState(
-        this.uuid,
-        this.clusterName('RvcOperationalState', 'rvcOperationalState'),
-        {
-          operationalState: state.operationalState,
-          operationalError: state.operationalError,
-        },
-      );
-
-      await this.api.matter.updateAccessoryState(this.uuid, this.clusterName('PowerSource', 'powerSource'), state.powerSource);
+      if (this.consecutiveRefreshFailures > 0) {
+        this.log.info(`Roborock status refresh recovered for ${this.config.name} after ${this.consecutiveRefreshFailures} failed attempt(s).`);
+      }
+      this.consecutiveRefreshFailures = 0;
+      this.nextRefreshAllowedAt = 0;
     } catch (error) {
-      this.log.warn(`Unable to refresh ${this.config.name}: ${String(error)}`);
+      this.handleRefreshError(error);
+    } finally {
+      this.refreshInFlight = false;
     }
+  }
+
+  private async applyStatusUpdate(status: RoborockStatus, source: StatusUpdateSource): Promise<void> {
+    if (!this.api.matter) {
+      return;
+    }
+
+    const holdOptimisticState = source === 'refresh' && this.shouldHoldOptimisticState(status);
+    const effectiveStatus = holdOptimisticState
+      ? { ...status, state: undefined }
+      : status;
+
+    if (!this.hasStatusValues(effectiveStatus)) {
+      return;
+    }
+
+    const mergedStatus = this.mergeStatus(effectiveStatus);
+    const state = this.toMatterState(mergedStatus);
+
+    await this.api.matter.updateAccessoryState(this.uuid, this.clusterName('RvcRunMode', 'rvcRunMode'), {
+      currentMode: state.runMode,
+    });
+
+    await this.api.matter.updateAccessoryState(this.uuid, this.clusterName('RvcCleanMode', 'rvcCleanMode'), {
+      currentMode: state.cleanMode,
+    });
+
+    await this.api.matter.updateAccessoryState(
+      this.uuid,
+      this.clusterName('RvcOperationalState', 'rvcOperationalState'),
+      {
+        operationalState: state.operationalState,
+        operationalError: state.operationalError,
+      },
+    );
+
+    await this.api.matter.updateAccessoryState(this.uuid, this.clusterName('PowerSource', 'powerSource'), state.powerSource);
+
+    if (source !== 'optimistic' && status.state !== undefined && !holdOptimisticState) {
+      this.clearOptimisticState();
+    }
+  }
+
+  private mergeStatus(status: RoborockStatus): RoborockStatus {
+    const nextStatus: RoborockStatus = { ...(this.lastKnownStatus ?? {}) };
+
+    for (const [key, value] of Object.entries(status)) {
+      if (value !== undefined) {
+        (nextStatus as Record<string, unknown>)[key] = value;
+      }
+    }
+
+    this.lastKnownStatus = nextStatus;
+    return nextStatus;
+  }
+
+  private hasStatusValues(status: RoborockStatus): boolean {
+    return Object.values(status).some((value) => value !== undefined);
+  }
+
+  private shouldHoldOptimisticState(status: RoborockStatus): boolean {
+    if (status.state === undefined || this.optimisticOperationalState === undefined) {
+      return false;
+    }
+
+    if (Date.now() > this.optimisticStateExpiresAt) {
+      this.clearOptimisticState();
+      return false;
+    }
+
+    const observedStatus = {
+      ...(this.lastKnownStatus ?? {}),
+      ...status,
+    };
+    const observedOperationalState = this.toOperationalState(observedStatus);
+
+    return !this.optimisticStateAccepts(observedOperationalState);
+  }
+
+  private optimisticStateAccepts(operationalState: number): boolean {
+    switch (this.optimisticOperationalState) {
+      case RVC_OPERATIONAL_STATES.Running:
+        return operationalState === RVC_OPERATIONAL_STATES.Running;
+      case RVC_OPERATIONAL_STATES.Paused:
+        return operationalState === RVC_OPERATIONAL_STATES.Paused;
+      case RVC_OPERATIONAL_STATES.SeekingCharger:
+        return ([
+          RVC_OPERATIONAL_STATES.SeekingCharger,
+          RVC_OPERATIONAL_STATES.Charging,
+          RVC_OPERATIONAL_STATES.Docked,
+        ] as number[]).includes(operationalState);
+      default:
+        return operationalState === this.optimisticOperationalState;
+    }
+  }
+
+  private clearOptimisticState(): void {
+    this.optimisticOperationalState = undefined;
+    this.optimisticStateExpiresAt = 0;
+  }
+
+  private handleRefreshError(error: unknown): void {
+    this.consecutiveRefreshFailures++;
+    const now = Date.now();
+    const backoffMs = this.refreshBackoffMs(this.consecutiveRefreshFailures);
+    this.nextRefreshAllowedAt = now + backoffMs;
+
+    if (this.consecutiveRefreshFailures === 1 || now - this.lastRefreshWarningAt >= REFRESH_WARNING_THROTTLE_MS) {
+      this.lastRefreshWarningAt = now;
+      this.log.warn(
+        `Unable to refresh ${this.config.name}: ${String(error)} `
+        + `Status polling will retry in ${Math.round(backoffMs / 1000)} seconds; repeated refresh errors are throttled.`,
+      );
+      return;
+    }
+
+    this.log.debug(`Suppressed repeated refresh error for ${this.config.name}: ${String(error)}`);
+  }
+
+  private refreshBackoffMs(failures: number): number {
+    const exponentialBackoffSeconds = 30 * (2 ** Math.min(failures - 1, 4));
+    return Math.min(exponentialBackoffSeconds * 1000, MAX_REFRESH_BACKOFF_MS);
   }
 
   private toMatterState(status?: RoborockStatus): {
@@ -398,6 +653,9 @@ export class RoborockMatterVacuum {
       case 15:
         return RVC_OPERATIONAL_STATES.SeekingCharger;
       case 8:
+        if (status.battery !== undefined && status.battery >= 99) {
+          return RVC_OPERATIONAL_STATES.Docked;
+        }
         return RVC_OPERATIONAL_STATES.Charging;
       case 10:
         return RVC_OPERATIONAL_STATES.Paused;
@@ -422,7 +680,8 @@ export class RoborockMatterVacuum {
         ...mode,
         waterBoxMode: 200,
       })),
-      ...DEFAULT_MOPPING_CLEAN_MODES,
+      ...DEFAULT_VACUUM_AND_MOP_CLEAN_MODES,
+      ...(this.shouldEnableMopOnlyModes() ? DEFAULT_MOP_ONLY_CLEAN_MODES : []),
     ];
   }
 
@@ -431,21 +690,30 @@ export class RoborockMatterVacuum {
       return this.config.enableMoppingModes;
     }
 
-    const model = this.config.model?.toLowerCase() ?? '';
+    return this.modelMatches(MOPPING_MODEL_CODES, MOPPING_MODEL_NAME_TOKENS);
+  }
 
-    return [
-      's5e',
-      's6 maxv',
-      'a09',
-      'a10',
-      'a11',
-      'a15',
-      'a27',
-      'a51',
-      'a65',
-      'a73',
-      'a75',
-    ].some((token) => model.includes(token));
+  private shouldEnableMopOnlyModes(): boolean {
+    return this.modelMatches(MOP_ONLY_MODEL_CODES, MOP_ONLY_MODEL_NAME_TOKENS);
+  }
+
+  private modelMatches(modelCodes: Set<string>, nameTokens: string[]): boolean {
+    const normalizedModel = this.config.model?.toLowerCase() ?? '';
+    if (!normalizedModel) {
+      return false;
+    }
+
+    for (const code of this.modelCodes(normalizedModel)) {
+      if (modelCodes.has(code)) {
+        return true;
+      }
+    }
+
+    return nameTokens.some((token) => normalizedModel.includes(token));
+  }
+
+  private modelCodes(model: string): Set<string> {
+    return new Set([...model.matchAll(MODEL_CODE_PATTERN)].map((match) => match[1]));
   }
 
   private currentCleanMode(status?: RoborockStatus): number {
@@ -609,19 +877,14 @@ export class RoborockMatterVacuum {
       serviceArea: {
         supportedAreas: this.serviceAreas.map((area) => ({
           areaId: area.areaId,
-          mapId: 1,
+          mapId: this.areaMapId(area),
           areaInfo: {
             locationInfo: {
               locationName: area.label,
             },
           },
         })),
-        supportedMaps: [
-          {
-            mapId: 1,
-            name: `${this.config.name} Map`,
-          },
-        ],
+        supportedMaps: this.serviceMaps,
         selectedAreas: this.selectedAreaIds,
       },
     };
@@ -635,22 +898,135 @@ export class RoborockMatterVacuum {
     return {
       serviceArea: {
         selectAreas: async (request: { newAreas?: number[]; areas?: number[] }) => {
-          const selectedAreas = request.newAreas ?? request.areas ?? [];
+          const selectedAreas = [...new Set(request.newAreas ?? request.areas ?? [])];
           const unknownAreas = selectedAreas.filter((areaId) => {
             return !this.serviceAreas.some((area) => area.areaId === areaId);
           });
 
           if (unknownAreas.length > 0) {
-            throw new Error(`Unknown service area(s): ${unknownAreas.join(', ')}`);
+            return {
+              status: SERVICE_AREA_SELECT_STATUS.UnsupportedArea,
+              statusText: `Unknown service area(s): ${unknownAreas.join(', ')}`,
+            };
+          }
+
+          const selectedAreaConfigs = this.serviceAreas.filter((area) => selectedAreas.includes(area.areaId));
+          const selectedMapIds = new Set(selectedAreaConfigs.map((area) => this.areaMapId(area)));
+
+          if (selectedMapIds.size > 1) {
+            return {
+              status: SERVICE_AREA_SELECT_STATUS.InvalidSet,
+              statusText: 'Select rooms from one Roborock map at a time.',
+            };
           }
 
           this.selectedAreaIds = selectedAreas;
+          await this.updateSelectedAreas();
+
+          return {
+            status: SERVICE_AREA_SELECT_STATUS.Success,
+            statusText: '',
+          };
         },
         skipArea: async () => {
           this.selectedAreaIds = [];
+          await this.updateSelectedAreas();
+          return {
+            status: SERVICE_AREA_SKIP_STATUS.Success,
+            statusText: '',
+          };
         },
       },
     };
+  }
+
+  private async updateSelectedAreas(): Promise<void> {
+    await this.api.matter?.updateAccessoryState(this.uuid, this.clusterName('ServiceArea', 'serviceArea'), {
+      selectedAreas: this.selectedAreaIds,
+    });
+  }
+
+  private normalizeServiceAreas(serviceAreas: ServiceAreaConfig[]): ServiceAreaConfig[] {
+    const labelCounts = new Map<string, number>();
+
+    return serviceAreas.map((area) => {
+      const mapId = this.areaMapId(area);
+      const labelKey = `${mapId}:${area.label}`;
+      const labelCount = labelCounts.get(labelKey) ?? 0;
+      labelCounts.set(labelKey, labelCount + 1);
+
+      return {
+        ...area,
+        label: labelCount === 0 ? area.label : `${area.label} (${labelCount + 1})`,
+        mapId,
+        mapName: area.mapName ?? this.serviceMaps.find((map) => map.mapId === mapId)?.name,
+      };
+    });
+  }
+
+  private serviceMapsFromAreas(serviceAreas: ServiceAreaConfig[]): ServiceMapConfig[] {
+    const mapsById = new Map<number, ServiceMapConfig>();
+
+    for (const area of serviceAreas) {
+      const mapId = area.mapId ?? 1;
+      if (!mapsById.has(mapId)) {
+        mapsById.set(mapId, {
+          mapId,
+          name: area.mapName ?? (mapId === 1 ? `${this.config.name} Map` : `Map ${mapId}`),
+        });
+      }
+    }
+
+    return [...mapsById.values()];
+  }
+
+  private normalizeServiceMaps(serviceMaps: ServiceMapConfig[]): ServiceMapConfig[] {
+    const seenMapIds = new Set<number>();
+    const seenNames = new Set<string>();
+    const normalizedMaps: ServiceMapConfig[] = [];
+
+    for (const serviceMap of serviceMaps) {
+      if (!Number.isInteger(serviceMap.mapId) || seenMapIds.has(serviceMap.mapId)) {
+        continue;
+      }
+
+      const baseName = serviceMap.name || `Map ${serviceMap.mapId}`;
+      const name = this.uniqueMapName(baseName, seenNames, serviceMap.mapId);
+      seenMapIds.add(serviceMap.mapId);
+      normalizedMaps.push({ mapId: serviceMap.mapId, name });
+    }
+
+    if (normalizedMaps.length === 0 && (this.config.serviceAreas?.length ?? 0) > 0) {
+      normalizedMaps.push({ mapId: 1, name: `${this.config.name} Map` });
+    }
+
+    return normalizedMaps.sort((left, right) => left.mapId - right.mapId);
+  }
+
+  private areaMapId(area: ServiceAreaConfig): number {
+    return area.mapId ?? this.serviceMaps[0]?.mapId ?? 1;
+  }
+
+  private uniqueMapName(baseName: string, seenNames: Set<string>, mapId: number): string {
+    if (!seenNames.has(baseName)) {
+      seenNames.add(baseName);
+      return baseName;
+    }
+
+    const suffixed = `${baseName} ${mapId}`;
+    if (!seenNames.has(suffixed)) {
+      seenNames.add(suffixed);
+      return suffixed;
+    }
+
+    let counter = 2;
+    while (seenNames.has(`${suffixed} ${counter}`)) {
+      counter++;
+    }
+
+    const unique = `${suffixed} ${counter}`;
+    seenNames.add(unique);
+    return unique;
   }
 
   private clusterName(key: string, fallback: string): string {

@@ -13,9 +13,9 @@
       "pollingIntervalSeconds": {
         "title": "Polling Interval",
         "type": "integer",
-        "minimum": 5,
-        "default": 20,
-        "description": "How often to poll Roborock state and push updates to Matter."
+        "minimum": 60,
+        "default": 60,
+        "description": "How often to poll Roborock state and push updates to Matter. Roborock cloud polling is limited to 60 seconds or longer to avoid repeated cloud timeouts."
       },
       "username": {
         "title": "Roborock Account Email",
