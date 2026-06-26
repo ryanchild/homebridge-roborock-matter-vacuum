@@ -114,6 +114,7 @@ const REFRESH_WARNING_THROTTLE_MS = 10 * 60 * 1000;
 const MAX_REFRESH_BACKOFF_MS = 5 * 60 * 1000;
 const OPTIMISTIC_STATE_WINDOW_MS = 25 * 1000;
 const COMMAND_RECONCILIATION_REFRESH_DELAYS_MS = [5 * 1000, 20 * 1000] as const;
+const STARTUP_RECONCILIATION_REFRESH_DELAYS_MS = [3 * 1000, 10 * 1000] as const;
 const MODEL_CODE_PATTERN = /(?:^|[.\s_-])(a\d+)(?=$|[.\s_-])/g;
 const MOPPING_MODEL_CODES = new Set([
   'a09',
@@ -173,6 +174,7 @@ export class RoborockMatterVacuum {
   private pollTimer?: NodeJS.Timeout;
   private statusUpdateUnsubscribe?: () => void;
   private readonly commandRefreshTimers = new Set<NodeJS.Timeout>();
+  private readonly startupRefreshTimers = new Set<NodeJS.Timeout>();
   private selectedAreaIds: number[] = [];
   private lastKnownStatus?: RoborockStatus;
   private refreshInFlight = false;
@@ -307,6 +309,7 @@ export class RoborockMatterVacuum {
     }, intervalSeconds * 1000);
 
     void this.refreshState();
+    this.scheduleStartupRefreshes();
   }
 
   public stopPolling(): void {
@@ -317,6 +320,7 @@ export class RoborockMatterVacuum {
 
     this.statusUpdateUnsubscribe?.();
     this.statusUpdateUnsubscribe = undefined;
+    this.clearStartupRefreshes();
     this.clearCommandRefreshes();
   }
 
@@ -398,6 +402,25 @@ export class RoborockMatterVacuum {
       clearTimeout(timer);
     }
     this.commandRefreshTimers.clear();
+  }
+
+  private scheduleStartupRefreshes(): void {
+    this.clearStartupRefreshes();
+
+    for (const delay of STARTUP_RECONCILIATION_REFRESH_DELAYS_MS) {
+      const timer = setTimeout(() => {
+        this.startupRefreshTimers.delete(timer);
+        void this.refreshState(true);
+      }, delay);
+      this.startupRefreshTimers.add(timer);
+    }
+  }
+
+  private clearStartupRefreshes(): void {
+    for (const timer of this.startupRefreshTimers) {
+      clearTimeout(timer);
+    }
+    this.startupRefreshTimers.clear();
   }
 
   private async refreshState(force = false): Promise<void> {

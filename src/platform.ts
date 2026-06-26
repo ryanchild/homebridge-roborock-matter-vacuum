@@ -9,7 +9,7 @@ import type {
 import { APIEvent } from 'homebridge';
 import path from 'node:path';
 import { RoborockMatterVacuum } from './matterVacuum';
-import type { RoborockVacuumClient } from './roborockClient';
+import type { RoborockStatus, RoborockVacuumClient } from './roborockClient';
 import { RoborockCloudConnection } from './roborockCloudClient';
 import { PLATFORM_NAME, PLUGIN_NAME, type RoborockMatterConfig, type RoborockVacuumConfig } from './settings';
 
@@ -84,13 +84,15 @@ export class RoborockMatterPlatform implements DynamicPlatformPlugin {
       const vacuum = new RoborockMatterVacuum(this.api, this.log, this.config, vacuumConfig, client);
       expectedUuids.add(vacuum.UUID);
 
-      let accessory = vacuum.buildAccessory();
+      let initialStatus: RoborockStatus | undefined;
 
       try {
-        accessory = vacuum.buildAccessory(await client.getStatus());
+        initialStatus = await client.getStatus();
       } catch (error) {
         this.log.warn(`Could not read initial state for ${vacuumConfig.name}; publishing with default stopped state. ${String(error)}`);
       }
+
+      const accessory = vacuum.buildAccessory(initialStatus);
 
       if (this.cachedMatterAccessories.has(vacuum.UUID)) {
         await this.api.matter.updatePlatformAccessories([accessory]);

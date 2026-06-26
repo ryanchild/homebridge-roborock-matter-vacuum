@@ -1136,8 +1136,12 @@ export class RoborockCloudConnection {
           .map((mapId) => mapsById.get(mapId)?.name ?? `Map ${mapId}`)
           .join(', ');
         this.log.warn(
-          `Roborock returned identical room mappings for ${mapNames}; using generic room labels for ${genericMapNames}. `
+          `Roborock returned identical room mappings for ${sortedMapIds.length} saved maps; `
+          + `using generic room labels for ${genericMapIds.length} map(s). `
           + 'Configure serviceAreas manually for exact per-floor room names if this model does not expose them automatically.',
+        );
+        this.log.debug(
+          `Roborock repeated room mapping maps: ${mapNames}; generic labels applied to: ${genericMapNames}.`,
         );
       }
     }
@@ -1252,22 +1256,25 @@ export class RoborockCloudConnection {
   private async readServiceAreaCache(duid: string): Promise<CachedServiceAreaDiscovery | undefined> {
     try {
       const raw = await fs.readFile(this.serviceAreaCachePath(), 'utf8');
-      const cache = JSON.parse(raw) as ServiceAreaDiscoveryCache;
+      const cache = JSON.parse(raw) as unknown;
+      if (!this.isRecord(cache) || !this.isRecord(cache.devices)) {
+        return undefined;
+      }
+
+      const cached = this.normalizeCachedServiceAreaDiscovery(cache.devices[duid]);
+
+      if (!cached) {
+        return undefined;
+      }
+
       if (cache.version !== SERVICE_AREA_CACHE_VERSION) {
-        return undefined;
+        this.log.debug(
+          `Using legacy Roborock room cache schema ${String(cache.version ?? 'unknown')}; `
+          + 'the cache will be migrated after the next successful discovery.',
+        );
       }
 
-      const cached = cache.devices?.[duid];
-
-      if (!cached || !Array.isArray(cached.serviceAreas)) {
-        return undefined;
-      }
-
-      return {
-        serviceAreas: cached.serviceAreas,
-        serviceMaps: Array.isArray(cached.serviceMaps) ? cached.serviceMaps : this.serviceMapsFromAreas(cached.serviceAreas),
-        updatedAt: typeof cached.updatedAt === 'string' ? cached.updatedAt : 'unknown time',
-      };
+      return cached;
     } catch (error) {
       if (this.isFileMissingError(error)) {
         return undefined;
@@ -1288,11 +1295,12 @@ export class RoborockCloudConnection {
 
     try {
       const raw = await fs.readFile(cachePath, 'utf8');
-      cache = JSON.parse(raw) as ServiceAreaDiscoveryCache;
-      if (cache.version !== SERVICE_AREA_CACHE_VERSION) {
-        cache = { version: SERVICE_AREA_CACHE_VERSION, devices: {} };
-      } else {
-        cache.devices ??= {};
+      const existing = JSON.parse(raw) as unknown;
+      if (this.isRecord(existing) && this.isRecord(existing.devices)) {
+        cache = {
+          version: SERVICE_AREA_CACHE_VERSION,
+          devices: existing.devices as Record<string, CachedServiceAreaDiscovery | undefined>,
+        };
       }
     } catch (error) {
       if (!this.isFileMissingError(error)) {
@@ -1301,7 +1309,6 @@ export class RoborockCloudConnection {
     }
 
     cache.version = SERVICE_AREA_CACHE_VERSION;
-    cache.devices ??= {};
     cache.devices[duid] = {
       ...this.finalizeServiceAreaDiscovery(discovery),
       updatedAt: new Date().toISOString(),
@@ -1317,6 +1324,22 @@ export class RoborockCloudConnection {
     } catch (error) {
       this.log.debug(`Could not write Roborock room cache. ${this.formatError(error)}`);
     }
+  }
+
+  private normalizeCachedServiceAreaDiscovery(value: unknown): CachedServiceAreaDiscovery | undefined {
+    if (!this.isRecord(value) || !Array.isArray(value.serviceAreas) || value.serviceAreas.length === 0) {
+      return undefined;
+    }
+
+    const serviceAreas = value.serviceAreas as ServiceAreaConfig[];
+
+    return {
+      serviceAreas,
+      serviceMaps: Array.isArray(value.serviceMaps)
+        ? value.serviceMaps as ServiceMapConfig[]
+        : this.serviceMapsFromAreas(serviceAreas),
+      updatedAt: typeof value.updatedAt === 'string' ? value.updatedAt : 'unknown time',
+    };
   }
 
   private serviceAreaCachePath(): string {

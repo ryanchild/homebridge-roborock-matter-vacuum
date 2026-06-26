@@ -970,7 +970,7 @@ class RoborockMqttConnector {
       clearTimeout(pending.timeout);
 
       if (dps.code !== undefined || dps.error !== undefined) {
-        pending.reject(new Error(`Roborock request ${id} failed: ${JSON.stringify(dps)}`));
+        pending.reject(new Error(`Roborock request ${id} (${pending.method}) failed: ${this.formatDpsError(dps)}`));
         return;
       }
 
@@ -1002,6 +1002,15 @@ class RoborockMqttConnector {
     }
 
     return null;
+  }
+
+  private formatDpsError(dps: DecodedDps): string {
+    const details = [
+      dps.code === undefined ? undefined : `code=${String(dps.code)}`,
+      dps.error === undefined ? undefined : `error=${String(dps.error)}`,
+    ].filter((detail): detail is string => detail !== undefined);
+
+    return details.length > 0 ? details.join(', ') : 'unknown device error';
   }
 
   private normalizeMessageId(value: unknown): number | undefined {

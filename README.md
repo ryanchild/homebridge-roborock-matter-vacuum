@@ -79,13 +79,13 @@ npm install -g homebridge-roborock-matter-vacuum
 For a beta tarball build:
 
 ```sh
-npm install -g ./homebridge-roborock-matter-vacuum-0.5.0.tgz
+npm install -g ./homebridge-roborock-matter-vacuum-0.5.1.tgz
 ```
 
 If the tarball is hosted from another machine:
 
 ```sh
-npm install -g http://HOST:PORT/homebridge-roborock-matter-vacuum-0.5.0.tgz
+npm install -g http://HOST:PORT/homebridge-roborock-matter-vacuum-0.5.1.tgz
 ```
 
 Restart Homebridge after installing or updating the plugin.
@@ -209,7 +209,9 @@ Apple Home currently exposes controls such as start, pause, return to dock, batt
 - Some Roborock models report saved map names but reuse the same room-name mapping for every map. When that happens, the plugin keeps the stable discovered room names and uses generic room labels for maps with stale data; exact per-floor room names may require `roomNameOverrides` or `roomNamesByMap`.
 - Room selections must be on one Roborock map/floor at a time; the robot cannot clean rooms from multiple saved maps in a single command.
 - Roborock command acknowledgements can be slow or missing. The plugin returns quickly to Matter for responsiveness and logs late failures when Roborock reports them.
+- Apple Home may briefly show the vacuum as a small generic Matter tile with a house icon after app launch, Home hub changes, or accessory cache refreshes. Opening the tile usually prompts Apple Home to finish reading the Matter device type and redraw it as a robotic vacuum.
 - Changing supported Matter modes or rooms may require restarting Homebridge and, in some cases, removing and re-adding the Matter accessory.
+- The plugin storage directory contains cached Roborock session and room/map metadata. Keep the Homebridge storage directory private to the Homebridge service user.
 - Do not share Homebridge config files in issues or chat. Logs are safer than config, but they can still reveal device names and room counts.
 
 ## Development

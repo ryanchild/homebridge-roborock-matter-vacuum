@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.5.1 - 2026-06-25
+
+- Built Matter vacuum accessories once after the initial status read, avoiding duplicate clean-mode startup logging and unnecessary accessory reconstruction.
+- Added bounded startup status refreshes shortly after registration to help Matter controllers reconcile state soon after the accessory comes online.
+- Preserved usable room/map cache entries across internal cache version changes, so temporary Roborock discovery failures are less likely to make room selection disappear on startup.
+- Reduced raw Roborock cloud response exposure in command failure logs and moved detailed repeated-map names to debug logging.
+- Documented the Apple Home generic Matter tile behavior and Homebridge storage privacy caveats.
+
 ## 0.5.0 - 2026-06-23
 
 - Replaced the `homebridge-roborock-vacuum2` runtime dependency with a minimal in-repo Roborock cloud/MQTT client, dropping the old local miIO/token dependency path and substantially reducing the production dependency tree.
